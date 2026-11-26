@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-26 (later): new look (Trip HQ triphq-v9)
+- Warmer colours: sand background, lagoon-teal buttons, and one colour per country (saffron Thailand, jade Vietnam, ocean Philippines) on dates, headings and the Next up card. Bricolage headings to match the bucket list. Works in light and dark.
+- Quick spend: Just me / Split ÷2 / Split ÷3.
+
 ## 2026-11-26 (later): Now page, connect link (Trip HQ triphq-v8, Adventure List adv-v4)
 - Adventure List: Map and Journal pages removed. New Now page: your current or first stop and the next one with their bucket lists and side trips, what to book in the next 6 weeks, and must-dos not booked yet. Existing journal entries still show in Recap.
 - Trip HQ: a connect link (#sync=…) sets up the spreadsheet on another device in one tap. The sync code can be edited.
