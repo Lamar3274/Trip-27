@@ -469,14 +469,20 @@ const toRow=e=>({id:e.id,date:e.date,amt:e.amt,cur:e.cur,gbp:Math.round(e.gbp*10
 let syncT=null;function queueSync(){if(!S.sync.url)return;S.sync.dirty=true;save();clearTimeout(syncT);syncT=setTimeout(syncNow,2500)}
 async function syncNow(){const y=S.sync;if(!y.url||y.busy)return;if(!navigator.onLine){y.dirty=true;render();return}
  y.busy=true;y.err='';if(tab==='money')render();
- try{const body={token:y.token,action:'sync',rows:S.exp.map(toRow),deleted:Object.entries(S.expDel).map(([id,u])=>({id,upd:u}))};
+ try{const body={token:y.token,action:'sync',rows:S.exp.map(toRow),deleted:Object.entries(S.expDel).map(([id,u])=>({id,upd:u})),totals:monthTotals(),cats:CATS};
   const r=await fetch(y.url,{method:'POST',body:JSON.stringify(body),headers:{'Content-Type':'text/plain;charset=utf-8'},redirect:'follow'});
   const j=await r.json();if(!j.ok)throw new Error(j.error||'The sheet said no');
-  const res=mergeRows(j.rows||[]);y.last=new Date().toISOString();y.dirty=res.push>0;y.log=[{at:y.last,txt:`Sent ${body.rows.length}, received ${res.add} new and ${res.upd} changed${res.del?', '+res.del+' deleted':''}`},...(y.log||[])].slice(0,20);
-  if(res.push)setTimeout(syncNow,500)}
+  const res=mergeRows(j.rows||[]),na=addAdj(j.adj||[]);y.last=new Date().toISOString();y.dirty=res.push>0;y.log=[{at:y.last,txt:`Sent ${body.rows.length}, received ${res.add} new and ${res.upd} changed${res.del?', '+res.del+' deleted':''}${na?', '+na+' change'+(na>1?'s':'')+' typed into the month tabs':''}`},...(y.log||[])].slice(0,20);
+  if(res.push||res.add||na)setTimeout(syncNow,500)}
  catch(e){y.err=/Failed to fetch|NetworkError|Load failed/.test(e.message)?'Couldn’t reach the sheet. Check the link, or try again with signal.':e.message;y.dirty=true}
  y.busy=false;save();if(tab==='money'||tab==='more')render()}
 /* Newest change wins, per row. Rows typed in the sheet arrive with their own ID. */
+/* What each month tab should show: your share per category, in GBP and in baht (the sheet's BHAT column). VND and PHP go into GBP. */
+function monthTotals(){const t={};S.exp.forEach(e=>{const m=String(e.date).slice(0,7),c=e.cat,th=e.cur==='THB';t[m]=t[m]||{};t[m][c]=t[m][c]||{GBP:0,THB:0};if(th)t[m][c].THB+=(+e.amt||0)/Math.max(1,+e.split||1);else t[m][c].GBP+=+e.gbp||0});
+ for(const m in t)for(const c in t[m])for(const k in t[m][c])t[m][c][k]=Math.round(t[m][c][k]*100)/100;return t}
+/* A number you typed straight into a month tab comes back as an adjustment, so the app and the sheet agree. */
+function addAdj(list){let n=0;list.forEach(a=>{if(!a||!a.id||S.exp.some(e=>e.id===a.id)||S.expDel[a.id])return;const amt=+a.amt||0;if(!amt)return;const cur=a.cur==='THB'?'THB':'GBP',rt=rate(cur);
+ const t=today(),date=t.slice(0,7)===a.month?t:a.month+'-01';S.exp.push({id:a.id,date,amt,cur,cat:CATS.includes(a.cat)?a.cat:'Life expense',note:'Typed in the '+(a.tab||'month')+' tab',split:1,gbp:cur==='GBP'?amt:(rt?amt/rt:amt/42),upd:Date.now(),src:'sheet'});n++});return n}
 function mergeRows(rows){let add=0,upd=0,del=0,push=0;
  rows.forEach(r=>{if(!r.id)return;const l=S.exp.find(e=>e.id===r.id),ru=+r.upd||0;
   if(r.deleted){if(l&&(l.upd||0)<=ru){S.exp=S.exp.filter(e=>e.id!==r.id);S.expDel[r.id]=ru;del++}return}
@@ -512,8 +518,44 @@ function doPost(e) {
       const r = byId[d.id];
       if (r && !r.deleted && +d.upd >= r.upd) sh.getRange(r.row, 9, 1, 2).setValues([[new Date(+d.upd).toISOString(), 'TRUE']]);
     });
-    return out({ ok: true, rows: read_(sh).map(r => ({ id: r.id, date: r.date, amt: r.amt, cur: r.cur, gbp: r.gbp, cat: r.cat, note: r.note, split: r.split, upd: r.upd, deleted: r.deleted })) });
+    const adj = months_(b);
+    return out({ ok: true, adj: adj, rows: read_(sh).map(r => ({ id: r.id, date: r.date, amt: r.amt, cur: r.cur, gbp: r.gbp, cat: r.cat, note: r.note, split: r.split, upd: r.upd, deleted: r.deleted })) });
   } finally { lock.releaseLock(); }
+}
+
+/* Month tabs (Dec, Jan, Feb, March…): fills the GBP and BHAT cell for each category with the app's total
+   (spending is negative, like you type it). Formula cells are never touched. If you typed a different number
+   into one of these cells since the last sync, the difference is sent back to the app as an adjustment. */
+function months_(b) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), props = PropertiesService.getDocumentProperties(), adj = [];
+  const names = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const cats = (b.cats || []).map(c => [String(c).toLowerCase(), c]), totals = b.totals || {};
+  const r2 = n => Math.round((+n || 0) * 100) / 100;
+  ss.getSheets().forEach(sh => {
+    const name = sh.getName(), idx = names.indexOf(name.trim().slice(0, 3).toLowerCase());
+    if (idx < 0 || name === TAB) return;
+    const month = (idx === 11 ? '2026' : '2027') + '-' + ('0' + (idx + 1)).slice(-2);
+    const range = sh.getDataRange(), v = range.getValues(), f = range.getFormulas();
+    let hr = -1, cols = {};
+    for (let r = 0; r < Math.min(v.length, 10) && hr < 0; r++) v[r].forEach((x, c) => { const t = String(x).trim().toLowerCase(); if (t === 'gbp') { hr = r; cols.GBP = c; } if (/^(bhat|baht|thb)$/.test(t)) cols.THB = c; });
+    if (hr < 0) return;
+    for (let r = hr + 1; r < v.length; r++) {
+      const label = String(v[r][0]).trim().toLowerCase(), hit = cats.find(x => x[0] === label);
+      if (!hit) continue;
+      ['GBP', 'THB'].forEach(cur => {
+        const c = cols[cur]; if (c == null || f[r][c]) return;
+        const key = ['last', name, hit[1], cur].join('|'), last = props.getProperty(key), raw = v[r][c];
+        const cell = r2(raw), app = r2(((totals[month] || {})[hit[1]] || {})[cur]);
+        let want = -app;
+        const ref = last === null ? (raw === '' || cell === 0 ? cell : want) : r2(last);
+        if (cell !== r2(ref)) { const d = r2(ref - cell); adj.push({ id: 'adj-' + month + '-' + hit[1].replace(/[^A-Za-z]+/g, '') + '-' + cur + '-' + Date.now() + r, month: month, tab: name, cat: hit[1], cur: cur, amt: d }); want = -(app + d); }
+        want = r2(want);
+        if (cell !== want) sh.getRange(r + 1, c + 1).setValue(want === 0 && raw === '' ? '' : want);
+        props.setProperty(key, String(want));
+      });
+    }
+  });
+  return adj;
 }
 
 /* Typing in the sheet stamps the row, so your newest change wins on the next sync. */
@@ -564,7 +606,7 @@ function editTask(id){const x=S.tasks.find(y=>y.id==id)||{t:'',cat:'Visas & entr
 function info(){const i=S.info;return `<div class="card"><b>Insurance</b><small>Provider: ${esc(i.insurer)||'–'}</small><small>Policy no: ${esc(i.policy)||'–'}</small><small>Claims / emergency line: ${esc(i.claims)||'–'}</small></div><div class="card"><b>Emergency contacts</b><small style="white-space:pre-wrap">${esc(i.contacts)||'None added'}</small></div><div class="card"><b>Other essentials</b><small style="white-space:pre-wrap">${esc(i.notes)||'Embassy, bank lost-card number, key addresses…'}</small></div><button class="btn" data-a="editInfo">Edit</button><br><br><small>Stored only in this browser. Everything here is available offline once the page has loaded.</small>`}
 function editInfo(){const i=S.info;modal('Insurance & emergency',[['insurer','Insurer','text',i.insurer],['policy','Policy number','text',i.policy],['claims','Claims / emergency phone','text',i.claims],['contacts','Emergency contacts','area',i.contacts],['notes','Other essentials','area',i.notes]],v=>{S.info=v;save();close();render()})}
 function data(){const y=S.sync;if(!y.token){y.token=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>b.toString(16).padStart(2,'0')).join('');save()}
- return `<div class="card" id="sync"><b>${ic('sheet','s')} Spreadsheet</b><small style="margin-top:4px">Sends your spending to a tab called “Trip spending” in your Google Sheet, and brings back rows you add or change there. The newest change wins. Your Life Dashboard can then import from that tab.</small>
+ return `<div class="card" id="sync"><b>${ic('sheet','s')} Spreadsheet</b><small style="margin-top:4px">Fills the GBP and BHAT cells in your month tabs (Dec, Jan, Feb…) with your spending per category, and keeps every line in a “Trip spending” tab. Numbers you type into the month tabs, or rows you add to Trip spending, come back to the app. Your formulas are never touched.</small>
  <ol style="font-size:14px;padding-left:20px;margin:10px 0;color:var(--t)"><li>Open your Google Sheet › Extensions › Apps Script.</li><li>Delete what's there, paste the script (button below), Save.</li><li>Deploy › New deployment › Web app. Execute as: Me. Who has access: Anyone. Deploy, allow access, copy the web app link.</li><li>Paste the link below and tap Connect.</li></ol>
  <div class="row"><button class="btn sm ghost" data-a="copyGS">${ic('copy','s')} Copy script</button></div><label style="margin-top:10px">Web app link<input id="gsurl" value="${esc(y.url)}" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url" autocomplete="off"></label><small style="margin:-4px 0 10px">Sync code: ${esc(y.token)} (already inside the copied script)</small>
  <div class="row"><button class="btn sm" data-a="gsSave">${y.url?'Save and sync':'Connect'}</button>${y.url?`<button class="btn sm ghost" data-a="syncNow">Sync now</button><button class="btn sm ghost" data-a="gsOff">Disconnect</button>`:''}</div>${y.err?`<small class="bad" style="margin-top:8px">${esc(y.err)}</small>`:''}${(y.log||[]).length?`<small style="margin-top:8px">${y.log.slice(0,3).map(l=>new Date(l.at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+': '+esc(l.txt)).join('<br>')}</small>`:''}</div>

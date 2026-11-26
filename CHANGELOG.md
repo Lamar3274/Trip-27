@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-26 (later): sync fills your month tabs (Trip HQ triphq-v7)
+- The spreadsheet sync now also fills the GBP and BHAT cells in the Travelling £ month tabs, per category, and never touches formulas. Numbers you type there come back to the app as adjustments.
+
 ## 2026-11-26 (later): map removed (Trip HQ triphq-v6)
 - The schematic map is gone from Trip HQ. Saved places are a plain list under More › Places, and each one still has Open in Maps.
 
