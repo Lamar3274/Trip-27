@@ -1,7 +1,7 @@
 // Trip HQ service worker: caches the app so it opens with no signal.
 // Bump VERSION whenever you upload a new index.html so phones pick up the update.
-const VERSION = 'triphq-v4';
-const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const VERSION = 'triphq-v5';
+const FILES = ['./', 'index.html', '../shared/trip-shared.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
