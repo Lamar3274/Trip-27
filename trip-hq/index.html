@@ -579,7 +579,7 @@ function read_(sh) {
     let id = String(x[0] || '');
     if (!id) { id = 'sh-' + Utilities.getUuid().slice(0, 8); x[9] = x[9] || ''; sh.getRange(i + 1, 1).setValue(id); sh.getRange(i + 1, 9).setValue(new Date().toISOString()); sh.getRange(i + 1, 11).setValue('sheet'); x[8] = new Date().toISOString(); x[10] = 'sheet'; }
     const d = x[1] instanceof Date ? Utilities.formatDate(x[1], tz, 'yyyy-MM-dd') : String(x[1]).slice(0, 10);
-    out.push({ row: i + 1, id: id, date: d, amt: +x[2] || 0, cur: String(x[3] || 'GBP').toUpperCase(), gbp: x[4] === '' ? '' : +x[4], cat: String(x[5] || ''), note: String(x[6] || ''), split: +x[7] || 1, upd: Date.parse(x[8]) || 0, deleted: String(x[9]).toUpperCase() === 'TRUE', src: String(x[10] || '') });
+    out.push({ row: i + 1, id: id, date: d, amt: +x[2] || 0, cur: String(x[3] || 'GBP').toUpperCase(), gbp: x[4] === '' ? '' : +x[4], cat: String(x[5] || ''), note: String(x[6] || ''), split: +x[7] || 1, upd: (x[8] instanceof Date ? x[8].getTime() : Date.parse(x[8])) || 0, deleted: String(x[9]).toUpperCase() === 'TRUE', src: String(x[10] || '') });
   }
   return out;
 }
