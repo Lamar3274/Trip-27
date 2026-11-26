@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-26 (later): map removed (Trip HQ triphq-v6)
+- The schematic map is gone from Trip HQ. Saved places are a plain list under More › Places, and each one still has Open in Maps.
+
 ## 2026-11-26: itinerary planner (Trip HQ triphq-v5, Adventure List adv-v3)
 Trip HQ
 - The itinerary is now the home screen: a "Next up" countdown, month shortcuts, stays grouped by month and country, nights per stay, and Booked / Planned / Idea labels.
