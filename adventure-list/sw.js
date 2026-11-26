@@ -1,6 +1,6 @@
 // The Adventure List service worker: caches the app so it opens with no signal.
 // Bump VERSION whenever you upload a new index.html so phones pick up the update.
-const VERSION = 'adv-v3';
+const VERSION = 'adv-v4';
 const FONTS = 'adv-fonts';
 const FILES = ['./', 'index.html', '../shared/trip-shared.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => {

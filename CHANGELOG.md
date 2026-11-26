@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-26 (later): Now page, connect link (Trip HQ triphq-v8, Adventure List adv-v4)
+- Adventure List: Map and Journal pages removed. New Now page: your current or first stop and the next one with their bucket lists and side trips, what to book in the next 6 weeks, and must-dos not booked yet. Existing journal entries still show in Recap.
+- Trip HQ: a connect link (#sync=…) sets up the spreadsheet on another device in one tap. The sync code can be edited.
+
 ## 2026-11-26 (later): sync fills your month tabs (Trip HQ triphq-v7)
 - The spreadsheet sync now also fills the GBP and BHAT cells in the Travelling £ month tabs, per category, and never touches formulas. Numbers you type there come back to the app as adjustments.
 
